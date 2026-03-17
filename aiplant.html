@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Plant Disease Detector</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
+
+<style>
+body {
+    font-family: Arial;
+    background: #0b1d3a;
+    color: white;
+    text-align: center;
+}
+
+h1 {
+    margin-top: 20px;
+}
+
+.container {
+    border: 2px solid white;
+    width: 320px;
+    margin: 20px auto;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+.box {
+    border: 1px solid white;
+    margin: 10px auto;
+    padding: 10px;
+    width: 80%;
+    border-radius: 8px;
+}
+
+.row {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+}
+
+#status {
+    color: lightgreen;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Let's Scan Your Disease</h1>
+
+<div class="container">
+    <input type="file" id="imageUpload" accept="image/*">
+    <p id="status">Loading model...</p>
+    <img id="preview" width="200"/>
+</div>
+
+<div class="box">
+    <strong>Disease:</strong>
+    <p id="disease">-</p>
+</div>
+
+<div class="box">
+    <strong>Symptoms:</strong>
+    <p id="symptoms">-</p>
+</div>
+
+<div class="box">
+    <strong>Causes:</strong>
+    <p id="causes">-</p>
+</div>
+
+<div class="box">
+    <strong>Prevention Tips:</strong>
+    <div class="row">
+        <div>
+            <h4>Natural</h4>
+            <p id="natural">-</p>
+        </div>
+        <div>
+            <h4>Chemical</h4>
+            <p id="chemical">-</p>
+        </div>
+    </div>
+</div>
+
+<script>
+
+const URL = "https://teachablemachine.withgoogle.com/models/C6XzVwUH0/";
+
+let model;
+
+// Load model
+async function init() {
+    try {
+        model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+        document.getElementById("status").innerText = "Model Loaded ✅";
+    } catch (error) {
+        document.getElementById("status").innerText = "Error loading model ❌";
+        console.error(error);
+    }
+}
+init();
+
+// Image upload
+document.getElementById("imageUpload").addEventListener("change", function(event){
+
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function(){
+        const img = document.getElementById("preview");
+        img.src = reader.result;
+
+        img.onload = function(){
+            predict();
+        };
+    };
+
+    reader.readAsDataURL(file);
+});
+
+// Prediction
+async function predict() {
+
+    if (!model) {
+        alert("Model not ready yet!");
+        return;
+    }
+
+    const img = document.getElementById("preview");
+
+    const prediction = await model.predict(img);
+
+    prediction.sort((a, b) => b.probability - a.probability);
+
+    const top = prediction[0];
+    const disease = top.className;
+    const confidence = (top.probability * 100).toFixed(2);
+
+    document.getElementById("disease").innerText =
+        disease + " (" + confidence + "%)";
+
+    showDetails(disease);
+}
+
+// 🔥 EDIT THIS PART WITH YOUR REAL CLASSES
+function showDetails(disease) {
+
+    const info = {
+
+        "Rice_Blast": {
+            symptoms: "No visible symptoms",
+            causes: "Plant is healthy",
+            natural: "Maintain watering and sunlight",
+            chemical: "Not required"
+        },
+
+        "Downey_Mildew": {
+            symptoms: "Brown/black spots on leaves",
+            causes: "Fungal infection",
+            natural: "Neem oil spray",
+            chemical: "Use fungicide"
+        },
+
+        "Early_Blight": {
+            symptoms: "Yellowing and drying leaves",
+            causes: "Bacteria or fungus",
+            natural: "Remove infected leaves",
+            chemical: "Copper-based spray"
+        }
+
+    };
+
+    if (info[disease]) {
+        document.getElementById("symptoms").innerText = info[disease].symptoms;
+        document.getElementById("causes").innerText = info[disease].causes;
+        document.getElementById("natural").innerText = info[disease].natural;
+        document.getElementById("chemical").innerText = info[disease].chemical;
+    } else {
+        document.getElementById("symptoms").innerText = "No data available";
+        document.getElementById("causes").innerText = "-";
+        document.getElementById("natural").innerText = "-";
+        document.getElementById("chemical").innerText = "-";
+    }
+}
+
+</script>
+
+</body>
+</html>
