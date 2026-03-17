@@ -10,185 +10,120 @@
 <style>
 body {
     font-family: Arial;
+    text-align: center;
     background: #0b1d3a;
     color: white;
-    text-align: center;
-}
-
-h1 {
-    margin-top: 20px;
-}
-
-.container {
-    border: 2px solid white;
-    width: 320px;
-    margin: 20px auto;
-    padding: 20px;
-    border-radius: 10px;
 }
 
 .box {
-    border: 1px solid white;
-    margin: 10px auto;
-    padding: 10px;
-    width: 80%;
-    border-radius: 8px;
+    background: white;
+    color: black;
+    padding: 20px;
+    border-radius: 15px;
+    width: 350px;
+    margin: 20px auto;
 }
 
-.row {
-    display: flex;
-    justify-content: center;
-    gap: 30px;
+img {
+    width: 200px;
+    margin-top: 10px;
 }
 
-#status {
-    color: lightgreen;
+#details {
+    margin-top: 15px;
+    text-align: left;
 }
 </style>
 </head>
 
 <body>
 
-<h1>Let's Scan Your Disease</h1>
-
-<div class="container">
-    <input type="file" id="imageUpload" accept="image/*">
-    <p id="status">Loading model...</p>
-    <img id="preview" width="200"/>
-</div>
+<h1>🌱 AI Plant Disease Detector</h1>
 
 <div class="box">
-    <strong>Disease:</strong>
-    <p id="disease">-</p>
-</div>
+    <input type="file" accept="image/*" onchange="handleImage(event)">
+    <br>
+    <img id="preview" />
 
-<div class="box">
-    <strong>Symptoms:</strong>
-    <p id="symptoms">-</p>
-</div>
-
-<div class="box">
-    <strong>Causes:</strong>
-    <p id="causes">-</p>
-</div>
-
-<div class="box">
-    <strong>Prevention Tips:</strong>
-    <div class="row">
-        <div>
-            <h4>Natural</h4>
-            <p id="natural">-</p>
-        </div>
-        <div>
-            <h4>Chemical</h4>
-            <p id="chemical">-</p>
-        </div>
-    </div>
+    <div id="result">Loading model...</div>
+    <div id="details"></div>
 </div>
 
 <script>
-
-const URL = "https://jumaliiksha244-sys.github.io/ai-plant-detector/model/";
+const URL = "./model/";
 
 let model;
 
-// Load model
+// 🔥 ADD YOUR DISEASE INFO HERE
+const diseaseInfo = {
+    "Rice_Blast": {
+        cause: "No disease detected",
+        solution: "Keep maintaining good care 🌱"
+    },
+    "Leaf_Curl_Virus": {
+        cause: "Fungal or bacterial infection",
+        solution: "Remove affected leaves and use fungicide"
+    },
+    "Early_Blight": {
+        cause: "Fungal infection due to humidity",
+        solution: "Use fungicide and avoid overwatering"
+    },
+    "Downy_Mildew": {
+        cause: "Fungus in dry conditions",
+        solution: "Apply neem oil or fungicide"
+    }
+};
+
 async function init() {
     try {
         model = await tmImage.load(URL + "model.json", URL + "metadata.json");
-        document.getElementById("status").innerText = "Model Loaded ✅";
+        document.getElementById("result").innerHTML = "Model Loaded ✅";
     } catch (error) {
-        document.getElementById("status").innerText = "Error loading model ❌";
         console.error(error);
+        document.getElementById("result").innerHTML = "Error loading model ❌";
     }
 }
-init();
 
-// Image upload
-document.getElementById("imageUpload").addEventListener("change", function(event){
+async function predict(image) {
+    const prediction = await model.predict(image);
 
-    const file = event.target.files[0];
-    if (!file) return;
+    let highest = prediction[0];
 
-    const reader = new FileReader();
-
-    reader.onload = function(){
-        const img = document.getElementById("preview");
-        img.src = reader.result;
-
-        img.onload = function(){
-            predict();
-        };
-    };
-
-    reader.readAsDataURL(file);
-});
-
-// Prediction
-async function predict() {
-
-    if (!model) {
-        alert("Model not ready yet!");
-        return;
+    for (let i = 1; i < prediction.length; i++) {
+        if (prediction[i].probability > highest.probability) {
+            highest = prediction[i];
+        }
     }
 
+    const name = highest.className;
+    const confidence = (highest.probability * 100).toFixed(2);
+
+    document.getElementById("result").innerHTML =
+        "🌿 Disease: " + name + "<br>📊 Confidence: " + confidence + "%";
+
+    // 🔥 SHOW EXTRA DETAILS
+    if (diseaseInfo[name]) {
+        document.getElementById("details").innerHTML =
+            "<b>Cause:</b> " + diseaseInfo[name].cause + "<br><br>" +
+            "<b>Solution:</b> " + diseaseInfo[name].solution;
+    } else {
+        document.getElementById("details").innerHTML =
+            "No additional info available.";
+    }
+}
+
+function handleImage(event) {
+    const file = event.target.files[0];
     const img = document.getElementById("preview");
 
-    const prediction = await model.predict(img);
+    img.src = URL.createObjectURL(file);
 
-    prediction.sort((a, b) => b.probability - a.probability);
-
-    const top = prediction[0];
-    const disease = top.className;
-    const confidence = (top.probability * 100).toFixed(2);
-
-    document.getElementById("disease").innerText =
-        disease + " (" + confidence + "%)";
-
-    showDetails(disease);
-}
-
-// 🔥 EDIT THIS PART WITH YOUR REAL CLASSES
-function showDetails(disease) {
-
-    const info = {
-
-        "Rice_Blast": {
-            symptoms: "No visible symptoms",
-            causes: "Plant is healthy",
-            natural: "Maintain watering and sunlight",
-            chemical: "Not required"
-        },
-
-        "Downey_Mildew": {
-            symptoms: "Brown/black spots on leaves",
-            causes: "Fungal infection",
-            natural: "Neem oil spray",
-            chemical: "Use fungicide"
-        },
-
-        "Early_Blight": {
-            symptoms: "Yellowing and drying leaves",
-            causes: "Bacteria or fungus",
-            natural: "Remove infected leaves",
-            chemical: "Copper-based spray"
-        }
-
+    img.onload = async () => {
+        await predict(img);
     };
-
-    if (info[disease]) {
-        document.getElementById("symptoms").innerText = info[disease].symptoms;
-        document.getElementById("causes").innerText = info[disease].causes;
-        document.getElementById("natural").innerText = info[disease].natural;
-        document.getElementById("chemical").innerText = info[disease].chemical;
-    } else {
-        document.getElementById("symptoms").innerText = "No data available";
-        document.getElementById("causes").innerText = "-";
-        document.getElementById("natural").innerText = "-";
-        document.getElementById("chemical").innerText = "-";
-    }
 }
 
+init();
 </script>
 
 </body>
